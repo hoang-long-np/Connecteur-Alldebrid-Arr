@@ -9,7 +9,7 @@ services:
     restart: unless-stopped
     init: true
     # Même utilisateur que Radarr/Sonarr (568 = utilisateur « apps » de TrueNAS)
-    user: "${PUID:-568}:${PGID:-568}"
+    user: "${ARR_UID:-568}:${ARR_GID:-568}"
     environment:
       TZ: ${TZ:-Europe/Paris}
       ALLDEBRID_API_KEY: ${ALLDEBRID_API_KEY:?Renseignez ALLDEBRID_API_KEY}
