@@ -1,10 +1,9 @@
-# Stack Dockhand : l'image est construite à partir de ce dépôt.
+# Stack Dockhand : l'image est construite par GitHub Actions et publiée sur ghcr.io.
 # Les valeurs ${…} se renseignent dans les variables d'environnement de la stack (voir stack.env.example).
 services:
   alldebrid-arr:
-    build: .
-    image: connecteur-alldebrid-arr:latest
-    pull_policy: build
+    image: ghcr.io/hoang-long-np/connecteur-alldebrid-arr:latest
+    pull_policy: always
     container_name: alldebrid-arr
     restart: unless-stopped
     init: true

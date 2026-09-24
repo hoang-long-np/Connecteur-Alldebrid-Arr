@@ -27,17 +27,18 @@ Renseigner au minimum `ALLDEBRID_API_KEY` dans `.env` (modèle : `.env.example`)
 
 ## Déploiement sur TrueNAS avec Dockhand
 
-Dockhand construit l'image directement depuis le dépôt GitHub (`Dockerfile` + `compose.yaml`).
+À chaque push sur `main`, GitHub Actions construit l'image et la publie sur `ghcr.io/hoang-long-np/connecteur-alldebrid-arr:latest` (voir `.github/workflows/docker.yml`). Dockhand se contente de la télécharger.
 
-1. Dans Dockhand, créer une stack depuis un dépôt Git : URL du dépôt, branche `main`, fichier `compose.yaml`. Pour un dépôt privé, il faut aussi un jeton GitHub en lecture seule.
-2. Renseigner les variables d'environnement de la stack (modèle : `stack.env.example`) :
+1. Si l'image est privée, ajouter le registre dans Dockhand : `ghcr.io`, utilisateur `hoang-long-np`, mot de passe = jeton GitHub **classique** avec la permission `read:packages`. Les jetons « fine-grained » ne fonctionnent pas avec ghcr.io.
+2. Créer une stack classique (pas une stack Git) en collant le contenu de `compose.yaml`.
+3. Renseigner les variables d'environnement de la stack (modèle : `stack.env.example`) :
    - `ALLDEBRID_API_KEY` : la clé API. Elle se saisit uniquement dans Dockhand, jamais dans le dépôt ;
    - `DOWNLOADS_HOST_PATH` : dossier de téléchargement sur le NAS (ex. `/mnt/tank/media/downloads`) ;
    - `DOWNLOADS_CONTAINER_PATH` : chemin de ce même dossier **tel que Radarr/Sonarr le voient**. Voir le stockage des apps TrueNAS (ex. `/media/downloads`). Ainsi, ils trouvent les fichiers sans *Remote Path Mapping* ;
    - `ARR_UID` / `ARR_GID` : même utilisateur que Radarr/Sonarr (568 pour les apps TrueNAS). Ces noms évitent un conflit avec les `PUID`/`PGID` propres au conteneur Dockhand.
-3. Déployer, puis vérifier les logs du conteneur `alldebrid-arr` : `Connecté à AllDebrid : … (premium)`.
+4. Déployer, puis vérifier les logs du conteneur `alldebrid-arr` : `Connecté à AllDebrid : … (premium)`.
 
-Pour une mise à jour, pousser sur GitHub puis redéployer la stack : l'image est reconstruite à chaque fois (`pull_policy: build`). L'état est conservé dans `<dossier de téléchargement>/.alldebrid-arr/`.
+Pour une mise à jour, pousser sur GitHub, attendre la fin de l'action « Image Docker », puis redéployer la stack : la dernière image est téléchargée à chaque fois (`pull_policy: always`). L'état est conservé dans `<dossier de téléchargement>/.alldebrid-arr/`.
 
 Radarr/Sonarr installés en apps TrueNAS joignent le connecteur par l'adresse IP du NAS (port `8090`).
 
