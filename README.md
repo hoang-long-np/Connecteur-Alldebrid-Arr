@@ -1,66 +1,108 @@
 # Connecteur-Alldebrid-Arr
 
-Client de téléchargement pour Radarr, Sonarr, Lidarr, Readarr… qui fait passer les torrents par **AllDebrid** :
+Client de téléchargement pour Radarr, Sonarr, Lidarr, Readarr… qui fait passer les torrents par **AllDebrid**.
 
-1. Radarr/Sonarr envoient le magnet (ou le `.torrent`) choisi au connecteur, comme à qBittorrent ;
-2. le connecteur l'envoie à AllDebrid et attend qu'il soit disponible ;
-3. les fichiers sont téléchargés en **HTTPS** dans `DOWNLOAD_DIR/<catégorie>/` (avec reprise en cas de coupure) ;
-4. Radarr/Sonarr voient le téléchargement terminé et l'importent.
+1. L'application *arr envoie le magnet (ou le `.torrent`) choisi au connecteur, comme à qBittorrent.
+2. Le connecteur le transmet à AllDebrid et attend qu'il soit disponible.
+3. Les fichiers sont téléchargés en **HTTPS** dans `<dossier de téléchargement>/<catégorie>/`, avec reprise en cas de coupure.
+4. L'application *arr voit le téléchargement terminé et l'importe.
 
 Le connecteur imite l'API Web de qBittorrent : aucun plugin n'est nécessaire côté *arr.
 
-## Installation
+## Prérequis
 
-Node.js 22 ou plus récent est requis.
+- Un compte AllDebrid **premium** et sa clé API (https://alldebrid.com/apikeys/).
+- Une connexion « domestique » : AllDebrid bloque les adresses IP de serveurs dédiés et de VPN.
+- Docker, ou Node.js 22+ pour une exécution sans conteneur.
 
-```bash
-npm install
+## Déploiement avec Docker
+
+### Image
+
+À chaque push sur `main`, le workflow `.github/workflows/docker.yml` construit l'image et la publie sur GitHub Container Registry :
+
+```
+ghcr.io/<propriétaire-du-dépôt>/connecteur-alldebrid-arr:latest
 ```
 
-Renseigner au minimum `ALLDEBRID_API_KEY` dans `.env` (modèle : `.env.example`). La clé se crée sur https://alldebrid.com/apikeys/.
+Pour un fork, adapter la ligne `image:` de `compose.yaml`. L'image peut aussi être construite localement :
 
-## Lancement
+```bash
+docker build -t connecteur-alldebrid-arr .
+```
 
-- `npm run dev` : mode développement (redémarre à chaque modification)
-- `npm run build` puis `npm start` : version compilée
-- **F5** dans VS Code : lancement avec le débogueur
+Si le paquet ghcr.io est privé, l'hôte Docker doit s'authentifier auprès de `ghcr.io` avec un jeton GitHub **classique** doté de la permission `read:packages`. Les jetons « fine-grained » ne sont pas acceptés par ghcr.io.
 
-## Déploiement sur TrueNAS avec Dockhand
+### Stack
 
-À chaque push sur `main`, GitHub Actions construit l'image et la publie sur `ghcr.io/hoang-long-np/connecteur-alldebrid-arr:latest` (voir `.github/workflows/docker.yml`). Dockhand se contente de la télécharger.
+`compose.yaml` est prêt à l'emploi (Docker Compose, Dockhand, Portainer…). Les valeurs se renseignent dans les variables d'environnement de la stack ; le modèle est `stack.env.example`.
 
-1. Si l'image est privée, ajouter le registre dans Dockhand : `ghcr.io`, utilisateur `hoang-long-np`, mot de passe = jeton GitHub **classique** avec la permission `read:packages`. Les jetons « fine-grained » ne fonctionnent pas avec ghcr.io.
-2. Créer une stack classique (pas une stack Git) en collant le contenu de `compose.yaml`.
-3. Renseigner les variables d'environnement de la stack (modèle : `stack.env.example`) :
-   - `ALLDEBRID_API_KEY` : la clé API. Elle se saisit uniquement dans Dockhand, jamais dans le dépôt ;
-   - `DOWNLOADS_HOST_PATH` : dossier de téléchargement sur le NAS (ex. `/mnt/tank/media/downloads`) ;
-   - `DOWNLOADS_CONTAINER_PATH` : chemin de ce même dossier **tel que Radarr/Sonarr le voient**. Voir le stockage des apps TrueNAS (ex. `/media/downloads`). Ainsi, ils trouvent les fichiers sans *Remote Path Mapping* ;
-   - `ARR_UID` / `ARR_GID` : même utilisateur que Radarr/Sonarr (568 pour les apps TrueNAS). Ces noms évitent un conflit avec les `PUID`/`PGID` propres au conteneur Dockhand.
-4. Déployer, puis vérifier les logs du conteneur `alldebrid-arr` : `Connecté à AllDebrid : … (premium)`.
+| Variable | Rôle |
+| --- | --- |
+| `ALLDEBRID_API_KEY` | Clé API AllDebrid (obligatoire). À garder hors du dépôt. |
+| `DOWNLOADS_HOST_PATH` | Dossier de téléchargement sur l'hôte (obligatoire). |
+| `DOWNLOADS_CONTAINER_PATH` | Chemin de ce même dossier **dans les conteneurs *arr**. Le connecteur l'utilise à l'identique, ce qui évite les *Remote Path Mappings*. Défaut : `/downloads`. |
+| `ARR_UID` / `ARR_GID` | Utilisateur et groupe des applications *arr, pour que les fichiers leur appartiennent. Défaut : `568` (utilisateur « apps » de TrueNAS). |
+| `HOST_PORT` | Port exposé sur l'hôte. Défaut : `8090`. |
+| `QBIT_USERNAME` / `QBIT_PASSWORD` | Identifiants demandés aux *arr. Mot de passe vide = pas d'authentification. |
+| `ALLDEBRID_CLEANUP` | Retire le magnet d'AllDebrid une fois téléchargé ou supprimé. Défaut : `true`. |
+| `MAX_CONCURRENT_DOWNLOADS` | Fichiers téléchargés en parallèle. Défaut : `3`. |
+| `LOG_LEVEL` | `debug`, `info`, `warn` ou `error`. Défaut : `info`. |
 
-Pour une mise à jour, pousser sur GitHub, attendre la fin de l'action « Image Docker », puis redéployer la stack : la dernière image est téléchargée à chaque fois (`pull_policy: always`). L'état est conservé dans `<dossier de téléchargement>/.alldebrid-arr/`.
+`ARR_UID`/`ARR_GID` sont volontairement différents de `PUID`/`PGID` : certains gestionnaires de conteneurs (Dockhand par exemple) exécutent Compose avec leurs propres `PUID`/`PGID`, qui écraseraient ceux de la stack.
 
-Radarr/Sonarr installés en apps TrueNAS joignent le connecteur par l'adresse IP du NAS (port `8090`).
+L'utilisateur `ARR_UID` doit pouvoir écrire dans le dossier de téléchargement. Au démarrage, le connecteur le vérifie et s'arrête avec un message explicite si ce n'est pas le cas.
 
-## Configuration dans Radarr / Sonarr
+Les logs du conteneur doivent afficher :
+
+```
+Téléchargements : /downloads — état : /downloads/.alldebrid-arr
+Connecté à AllDebrid : <utilisateur> (premium)
+API compatible qBittorrent sur http://0.0.0.0:8090
+```
+
+### Mise à jour
+
+Pousser sur `main`, attendre la fin du workflow « Image Docker », puis redéployer la stack : `pull_policy: always` télécharge la dernière image.
+
+## Configuration des applications *arr
 
 *Settings → Download Clients → + → qBittorrent*
 
 | Champ | Valeur |
 | --- | --- |
-| Host | adresse IP du NAS (ou de la machine qui fait tourner le connecteur) |
-| Port | `8090` (variable `PORT`) |
-| Username / Password | `QBIT_USERNAME` / `QBIT_PASSWORD` (laisser vide si pas de mot de passe) |
+| Host | adresse IP de la machine qui fait tourner le connecteur |
+| Port | `8090` (ou `HOST_PORT`) |
+| Username / Password | `QBIT_USERNAME` / `QBIT_PASSWORD`, vides si pas de mot de passe |
 | Category | `radarr`, `tv-sonarr`… (un sous-dossier par catégorie) |
 
-Cliquer sur **Test** puis enregistrer. Laisser *Completed Download Handling* activé. *Remove Completed* permet de supprimer les fichiers du dossier de téléchargement après l'import.
+Cliquer sur **Test** puis enregistrer. Laisser *Completed Download Handling* activé ; *Remove Completed* supprime les fichiers du dossier de téléchargement après l'import.
 
-### Radarr/Sonarr sous Docker ou sur une autre machine
+Si les applications *arr voient le dossier de téléchargement sous un autre chemin que le connecteur, ajouter une correspondance dans *Settings → Download Clients → Remote Path Mappings*.
 
-Le connecteur donne des chemins tels qu'il les voit (ex. `D:\Downloads\radarr\Film.2024`). Si Radarr/Sonarr voient ce dossier sous un autre chemin, il faut ajouter une correspondance dans *Settings → Download Clients → Remote Path Mappings* (ex. `D:\Downloads\` → `/downloads/`).
+## Développement
+
+```bash
+npm install
+```
+
+Copier `.env.example` en `.env` et renseigner au minimum `ALLDEBRID_API_KEY`.
+
+- `npm run dev` : lancement avec rechargement automatique
+- `npm run build` puis `npm start` : version compilée
+- `npm run package` : vérification des types et fichier unique `release/connecteur.mjs` (utilisé par le `Dockerfile`)
+- **F5** dans VS Code : lancement avec le débogueur
+
+| Fichier | Rôle |
+| --- | --- |
+| `src/qbittorrent.ts` | API compatible qBittorrent exposée aux *arr |
+| `src/manager.ts` | Cycle de vie d'un téléchargement |
+| `src/alldebrid.ts` | Client de l'API AllDebrid |
+| `src/downloader.ts` | Téléchargement HTTPS avec reprise |
+| `src/store.ts` | Sauvegarde de l'état |
 
 ## Bon à savoir
 
-- AllDebrid bloque les adresses IP de serveurs dédiés et de VPN : le connecteur doit tourner sur une connexion « domestique ».
-- En cas d'échec (torrent introuvable, erreur AllDebrid…), l'élément passe en erreur dans la file de Radarr/Sonarr. La raison est affichée dans les logs du connecteur.
+- En cas d'échec (torrent introuvable, erreur AllDebrid…), l'élément passe en erreur dans la file de l'application *arr. La raison est affichée dans les logs du connecteur.
 - L'état est sauvegardé dans `<dossier de téléchargement>/.alldebrid-arr/state.json` : après un redémarrage, les téléchargements reprennent là où ils en étaient.
+- Seuls les liens HTTPS sont acceptés pour le téléchargement des fichiers.
