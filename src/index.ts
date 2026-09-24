@@ -3,6 +3,7 @@ import { access, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { AllDebridClient, AllDebridError } from "./alldebrid.js";
 import { config } from "./config.js";
+import type { AccountState } from "./dashboard.js";
 import { errorMessage, logger } from "./logger.js";
 import { DownloadManager } from "./manager.js";
 import { createQbitServer } from "./qbittorrent.js";
@@ -10,6 +11,8 @@ import { JobStore } from "./store.js";
 
 // Pas de process.exit() : sous Windows il peut faire planter Node pendant la fermeture
 // des connexions HTTPS. On positionne exitCode et on laisse le processus se terminer.
+
+const ACCOUNT_REFRESH_MS = 30 * 60 * 1000;
 
 async function isWritable(dir: string, label: string): Promise<boolean> {
   try {
@@ -38,8 +41,22 @@ async function main(): Promise<void> {
   await store.load();
 
   const debrid = new AllDebridClient(config.alldebrid.apiKey, config.alldebrid.agent);
+  const account: AccountState = {};
+  const refreshAccount = async (): Promise<void> => {
+    try {
+      account.info = await debrid.getUser();
+      account.error = undefined;
+    } catch (err) {
+      account.error = errorMessage(err);
+      throw err;
+    } finally {
+      account.checkedAt = Date.now();
+    }
+  };
+
   try {
-    const user = await debrid.getUser();
+    await refreshAccount();
+    const user = account.info!;
     if (user.isPremium) logger.info(`Connecté à AllDebrid : ${user.username} (premium)`);
     else logger.warn(`Le compte AllDebrid ${user.username} n'est pas premium : les téléchargements risquent d'échouer`);
   } catch (err) {
@@ -50,9 +67,13 @@ async function main(): Promise<void> {
     }
     logger.warn(`AllDebrid injoignable pour le moment : ${errorMessage(err)}`);
   }
+  // Statut du compte (premium, date d'expiration) affiché dans l'interface web.
+  setInterval(() => {
+    refreshAccount().catch((err) => logger.warn(`Compte AllDebrid injoignable : ${errorMessage(err)}`));
+  }, ACCOUNT_REFRESH_MS).unref();
 
   const manager = new DownloadManager(store, debrid);
-  const server = createQbitServer(manager, store);
+  const server = createQbitServer(manager, store, account);
 
   let stopping = false;
   const shutdown = async (): Promise<void> => {
@@ -73,7 +94,7 @@ async function main(): Promise<void> {
     void shutdown();
   });
   server.listen(config.server.port, config.server.host, () => {
-    logger.info(`API compatible qBittorrent sur http://${config.server.host}:${config.server.port}`);
+    logger.info(`API compatible qBittorrent et interface web sur http://${config.server.host}:${config.server.port}`);
     manager.start();
   });
 }

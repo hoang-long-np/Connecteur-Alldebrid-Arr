@@ -17,6 +17,21 @@ export function downloadedBytes(job: Job): number {
   return job.files.reduce((sum, file) => sum + (file.done ? file.size : Math.min(file.downloaded, file.size)), 0);
 }
 
+export function ratio(part: number, total: number): number {
+  return total > 0 ? Math.min(1, part / total) : 0;
+}
+
+/** Progression de 0 à 1 : celle d'AllDebrid tant que les fichiers ne sont pas connus, puis celle du téléchargement. */
+export function jobProgress(job: Job): number {
+  if (job.phase === "completed") return 1;
+  if (job.files.length > 0) return ratio(downloadedBytes(job), job.size);
+  return job.debridProgress;
+}
+
+export function fileProgress(file: FileTask): number {
+  return file.done ? 1 : ratio(file.downloaded, file.size);
+}
+
 /**
  * Cycle de vie d'un téléchargement :
  * magnet envoyé à AllDebrid → attente qu'AllDebrid l'ait récupéré → téléchargement HTTPS des fichiers.

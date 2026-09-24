@@ -43,6 +43,13 @@ interface FileEntry {
   e?: FileEntry[];
 }
 
+export interface AccountInfo {
+  username: string;
+  isPremium: boolean;
+  /** Fin de l'abonnement premium (timestamp Unix en secondes). */
+  premiumUntil?: number;
+}
+
 export interface UploadedMagnet {
   id: number;
   name: string;
@@ -74,8 +81,8 @@ export class AllDebridClient {
     private readonly agent: string,
   ) {}
 
-  async getUser(): Promise<{ username: string; isPremium: boolean }> {
-    const data = await this.call<{ user: { username: string; isPremium: boolean } }>("/v4/user");
+  async getUser(): Promise<AccountInfo> {
+    const data = await this.call<{ user: AccountInfo }>("/v4/user");
     return data.user;
   }
 

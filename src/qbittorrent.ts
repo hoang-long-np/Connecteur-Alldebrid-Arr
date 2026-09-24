@@ -2,7 +2,9 @@ import { randomBytes, timingSafeEqual } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { config } from "./config.js";
 import { errorMessage, logger } from "./logger.js";
-import { downloadedBytes, type DownloadManager } from "./manager.js";
+import { dashboardStatus, type AccountState } from "./dashboard.js";
+import { DASHBOARD_HTML } from "./dashboard-page.js";
+import { fileProgress, jobProgress, type DownloadManager } from "./manager.js";
 import { categorySavePath, contentPath, relativeSegments } from "./paths.js";
 import type { Job, JobStore } from "./store.js";
 
@@ -29,11 +31,21 @@ class HttpError extends Error {
   }
 }
 
+// La page ne charge rien d'extérieur : tout est inclus dans le HTML.
+const PAGE_HEADERS = {
+  "content-security-policy":
+    "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; img-src data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+  "x-content-type-options": "nosniff",
+  "referrer-policy": "no-referrer",
+  "cache-control": "no-store",
+};
+
 /**
  * Serveur qui imite l'API Web de qBittorrent, pour que Radarr, Sonarr, Lidarr…
  * puissent utiliser le connecteur comme un client torrent classique.
+ * Il sert aussi l'interface web de suivi sur « / ».
  */
-export function createQbitServer(manager: DownloadManager, store: JobStore): Server {
+export function createQbitServer(manager: DownloadManager, store: JobStore, account: AccountState): Server {
   const sessions = new Set<string>();
 
   const isAuthorized = (req: IncomingMessage): boolean => {
@@ -148,7 +160,7 @@ export function createQbitServer(manager: DownloadManager, store: JobStore): Ser
           index,
           name: relativeSegments(job, file).join("/"),
           size: file.size,
-          progress: file.done ? 1 : ratio(file.downloaded, file.size),
+          progress: fileProgress(file),
           priority: 1,
           is_seed: file.done,
           availability: 1,
@@ -208,13 +220,16 @@ export function createQbitServer(manager: DownloadManager, store: JobStore): Ser
     "/api/v2/torrents/resume": ok,
     "/api/v2/torrents/stop": ok,
     "/api/v2/torrents/start": ok,
+
+    // Interface web
+    "/ui/status": (_params, res) => json(res, dashboardStatus(store, account)),
   };
 
   return createServer(async (req, res) => {
     const url = new URL(req.url ?? "/", "http://localhost");
     try {
       const params = await readParams(req, url);
-      if (url.pathname === "/") return send(res, 200, "Connecteur-Alldebrid-Arr : API compatible qBittorrent sur /api/v2");
+      if (url.pathname === "/") return send(res, 200, DASHBOARD_HTML, "text/html; charset=utf-8", PAGE_HEADERS);
       if (url.pathname === "/api/v2/auth/login") return await login(params, res);
       if (!isAuthorized(req)) return send(res, 403, "Forbidden");
 
@@ -268,12 +283,6 @@ function toTorrent(job: Job) {
   };
 }
 
-function jobProgress(job: Job): number {
-  if (job.phase === "completed") return 1;
-  if (job.files.length > 0) return ratio(downloadedBytes(job), job.size);
-  return job.debridProgress;
-}
-
 /** États qBittorrent tels que Radarr/Sonarr les interprètent. */
 function torrentState(job: Job): string {
   switch (job.phase) {
@@ -312,8 +321,14 @@ async function readParams(req: IncomingMessage, url: URL): Promise<Params> {
   };
 }
 
-function send(res: ServerResponse, status: number, body: string, type = "text/plain; charset=utf-8"): void {
-  res.writeHead(status, { "content-type": type, "content-length": Buffer.byteLength(body) });
+function send(
+  res: ServerResponse,
+  status: number,
+  body: string,
+  type = "text/plain; charset=utf-8",
+  headers: Record<string, string> = {},
+): void {
+  res.writeHead(status, { ...headers, "content-type": type, "content-length": Buffer.byteLength(body) });
   res.end(body);
 }
 
@@ -325,10 +340,6 @@ function safeEqual(a: string, b: string): boolean {
   const left = Buffer.from(a);
   const right = Buffer.from(b);
   return left.length === right.length && timingSafeEqual(left, right);
-}
-
-function ratio(part: number, total: number): number {
-  return total > 0 ? Math.min(1, part / total) : 0;
 }
 
 function seconds(ms: number): number {

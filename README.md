@@ -58,12 +58,23 @@ Les logs du conteneur doivent afficher :
 ```
 Téléchargements : /downloads — état : /downloads/.alldebrid-arr
 Connecté à AllDebrid : <utilisateur> (premium)
-API compatible qBittorrent sur http://0.0.0.0:8090
+API compatible qBittorrent et interface web sur http://0.0.0.0:8090
 ```
 
 ### Mise à jour
 
 Pousser sur `main`, attendre la fin du workflow « Image Docker », puis redéployer la stack : `pull_policy: always` télécharge la dernière image.
+
+## Interface web
+
+Une page de suivi est servie sur le même port : `http://<hôte>:8090/`. Elle se met à jour toutes les 2 secondes et affiche :
+
+- l'état du compte AllDebrid (premium, date d'expiration) ;
+- le nombre de téléchargements en cours, terminés et en erreur, et le débit total ;
+- chaque téléchargement avec son étape (en file AllDebrid, sur AllDebrid, téléchargement, terminé, erreur), sa progression, son débit, le temps restant, ses fichiers et la raison d'un éventuel échec ;
+- les 200 dernières lignes du journal, filtrables sur les avertissements et erreurs.
+
+Si `QBIT_PASSWORD` est défini, la page demande les mêmes identifiants que les applications *arr. La page ne charge aucune ressource externe et suit le thème clair ou sombre du système.
 
 ## Configuration des applications *arr
 
@@ -100,9 +111,11 @@ Copier `.env.example` en `.env` et renseigner au minimum `ALLDEBRID_API_KEY`.
 | `src/alldebrid.ts` | Client de l'API AllDebrid |
 | `src/downloader.ts` | Téléchargement HTTPS avec reprise |
 | `src/store.ts` | Sauvegarde de l'état |
+| `src/dashboard.ts` | Données de l'interface web (`/ui/status`) |
+| `src/dashboard-page.ts` | Page HTML de l'interface web |
 
 ## Bon à savoir
 
-- En cas d'échec (torrent introuvable, erreur AllDebrid…), l'élément passe en erreur dans la file de l'application *arr. La raison est affichée dans les logs du connecteur.
+- En cas d'échec (torrent introuvable, erreur AllDebrid…), l'élément passe en erreur dans la file de l'application *arr. La raison est affichée dans l'interface web et dans les logs du connecteur.
 - L'état est sauvegardé dans `<dossier de téléchargement>/.alldebrid-arr/state.json` : après un redémarrage, les téléchargements reprennent là où ils en étaient.
 - Seuls les liens HTTPS sont acceptés pour le téléchargement des fichiers.

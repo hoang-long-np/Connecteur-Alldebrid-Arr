@@ -3,11 +3,23 @@ import { config } from "./config.js";
 const LEVELS = { debug: 10, info: 20, warn: 30, error: 40 } as const;
 type Level = keyof typeof LEVELS;
 
+export interface LogEntry {
+  time: number;
+  level: Level;
+  message: string;
+}
+
 const threshold = LEVELS[config.logLevel as Level] ?? LEVELS.info;
+const HISTORY_SIZE = 200;
+const history: LogEntry[] = [];
 
 function write(level: Level, message: string): void {
   if (LEVELS[level] < threshold) return;
-  const line = `${new Date().toLocaleString("fr-FR")} ${level.toUpperCase().padEnd(5)} ${message}`;
+  const time = Date.now();
+  history.push({ time, level, message });
+  if (history.length > HISTORY_SIZE) history.shift();
+
+  const line = `${new Date(time).toLocaleString("fr-FR")} ${level.toUpperCase().padEnd(5)} ${message}`;
   if (level === "error") console.error(line);
   else if (level === "warn") console.warn(line);
   else console.log(line);
@@ -19,6 +31,11 @@ export const logger = {
   warn: (message: string) => write("warn", message),
   error: (message: string) => write("error", message),
 };
+
+/** Dernières lignes du journal, affichées dans l'interface web. */
+export function recentLogs(): readonly LogEntry[] {
+  return history;
+}
 
 export function errorMessage(err: unknown): string {
   if (!(err instanceof Error)) return String(err);
