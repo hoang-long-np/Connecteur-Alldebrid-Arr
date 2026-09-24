@@ -1,0 +1,27 @@
+# Stack Dockhand : l'image est construite à partir de ce dépôt.
+# Les valeurs ${…} se renseignent dans les variables d'environnement de la stack (voir stack.env.example).
+services:
+  alldebrid-arr:
+    build: .
+    image: connecteur-alldebrid-arr:latest
+    pull_policy: build
+    container_name: alldebrid-arr
+    restart: unless-stopped
+    init: true
+    # Même utilisateur que Radarr/Sonarr (568 = utilisateur « apps » de TrueNAS)
+    user: "${PUID:-568}:${PGID:-568}"
+    environment:
+      TZ: ${TZ:-Europe/Paris}
+      ALLDEBRID_API_KEY: ${ALLDEBRID_API_KEY:?Renseignez ALLDEBRID_API_KEY}
+      ALLDEBRID_CLEANUP: ${ALLDEBRID_CLEANUP:-true}
+      QBIT_USERNAME: ${QBIT_USERNAME:-admin}
+      QBIT_PASSWORD: ${QBIT_PASSWORD:-}
+      DOWNLOAD_DIR: ${DOWNLOADS_CONTAINER_PATH:-/downloads}
+      DATA_DIR: ${DOWNLOADS_CONTAINER_PATH:-/downloads}/.alldebrid-arr
+      MAX_CONCURRENT_DOWNLOADS: ${MAX_CONCURRENT_DOWNLOADS:-3}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    ports:
+      - "${HOST_PORT:-8090}:8090"
+    volumes:
+      # Dossier de téléchargement, monté au même chemin que dans Radarr/Sonarr
+      - ${DOWNLOADS_HOST_PATH:?Renseignez DOWNLOADS_HOST_PATH}:${DOWNLOADS_CONTAINER_PATH:-/downloads}
