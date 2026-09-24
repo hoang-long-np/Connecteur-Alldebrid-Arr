@@ -63,4 +63,4 @@ Le connecteur donne des chemins tels qu'il les voit (ex. `D:\Downloads\radarr\Fi
 
 - AllDebrid bloque les adresses IP de serveurs dédiés et de VPN : le connecteur doit tourner sur une connexion « domestique ».
 - En cas d'échec (torrent introuvable, erreur AllDebrid…), l'élément passe en erreur dans la file de Radarr/Sonarr. La raison est affichée dans les logs du connecteur.
-- L'état est sauvegardé dans `DATA_DIR/state.json` : après un redémarrage, les téléchargements reprennent là où ils en étaient.
+- L'état est sauvegardé dans `<dossier de téléchargement>/.alldebrid-arr/state.json` : après un redémarrage, les téléchargements reprennent là où ils en étaient.

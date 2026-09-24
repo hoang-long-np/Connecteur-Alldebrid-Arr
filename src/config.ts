@@ -42,8 +42,9 @@ export const config = {
     password: process.env.QBIT_PASSWORD?.trim() ?? "",
   },
   downloadDir,
-  // Par défaut, l'état est rangé dans le dossier de téléchargement (déjà accessible en écriture).
-  dataDir: path.resolve(env("DATA_DIR", path.join(downloadDir, ".alldebrid-arr"))),
+  // L'état est toujours rangé dans le dossier de téléchargement, déjà accessible en écriture.
+  // Pas de variable dédiée : Dockhand transmettait une valeur erronée (« /.alldebrid-arr »).
+  dataDir: path.join(downloadDir, ".alldebrid-arr"),
   maxConcurrentDownloads: envInt("MAX_CONCURRENT_DOWNLOADS", 3),
   pollIntervalMs: envInt("POLL_INTERVAL_SECONDS", 5) * 1000,
   logLevel: env("LOG_LEVEL", "info"),
