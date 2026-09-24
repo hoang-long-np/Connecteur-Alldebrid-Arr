@@ -12,8 +12,7 @@ FROM node:24-alpine
 ENV NODE_ENV=production \
     TZ=Europe/Paris \
     PORT=8090 \
-    DOWNLOAD_DIR=/downloads \
-    DATA_DIR=/downloads/.alldebrid-arr
+    DOWNLOAD_DIR=/downloads
 WORKDIR /app
 COPY --from=build /src/release/connecteur.mjs ./
 USER node

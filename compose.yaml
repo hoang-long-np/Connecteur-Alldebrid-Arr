@@ -16,7 +16,6 @@ services:
       QBIT_USERNAME: ${QBIT_USERNAME:-admin}
       QBIT_PASSWORD: ${QBIT_PASSWORD:-}
       DOWNLOAD_DIR: ${DOWNLOADS_CONTAINER_PATH:-/downloads}
-      DATA_DIR: ${DOWNLOADS_CONTAINER_PATH:-/downloads}/.alldebrid-arr
       MAX_CONCURRENT_DOWNLOADS: ${MAX_CONCURRENT_DOWNLOADS:-3}
       LOG_LEVEL: ${LOG_LEVEL:-info}
     ports:

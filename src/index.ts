@@ -1,3 +1,5 @@
+import { constants } from "node:fs";
+import { access, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { AllDebridClient, AllDebridError } from "./alldebrid.js";
 import { config } from "./config.js";
@@ -9,7 +11,29 @@ import { JobStore } from "./store.js";
 // Pas de process.exit() : sous Windows il peut faire planter Node pendant la fermeture
 // des connexions HTTPS. On positionne exitCode et on laisse le processus se terminer.
 
+async function isWritable(dir: string, label: string): Promise<boolean> {
+  try {
+    await mkdir(dir, { recursive: true });
+    await access(dir, constants.W_OK);
+    return true;
+  } catch (err) {
+    const user = process.getuid ? ` pour l'utilisateur ${process.getuid()}:${process.getgid?.()}` : "";
+    logger.error(`${label} inaccessible en écriture${user} : ${dir} (${errorMessage(err)})`);
+    return false;
+  }
+}
+
 async function main(): Promise<void> {
+  logger.info(`Téléchargements : ${config.downloadDir} — état : ${config.dataDir}`);
+  const writable = [
+    await isWritable(config.downloadDir, "Dossier de téléchargement"),
+    await isWritable(config.dataDir, "Dossier d'état"),
+  ];
+  if (writable.includes(false)) {
+    process.exitCode = 1;
+    return;
+  }
+
   const store = new JobStore(path.join(config.dataDir, "state.json"));
   await store.load();
 
@@ -50,7 +74,6 @@ async function main(): Promise<void> {
   });
   server.listen(config.server.port, config.server.host, () => {
     logger.info(`API compatible qBittorrent sur http://${config.server.host}:${config.server.port}`);
-    logger.info(`Téléchargements dans ${config.downloadDir}`);
     manager.start();
   });
 }

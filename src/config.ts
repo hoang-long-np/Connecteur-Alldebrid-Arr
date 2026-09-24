@@ -27,6 +27,8 @@ function envBool(name: string, fallback: boolean): boolean {
   return ["1", "true", "yes", "oui"].includes(raw);
 }
 
+const downloadDir = path.resolve(env("DOWNLOAD_DIR", "downloads"));
+
 export const config = {
   alldebrid: {
     apiKey: env("ALLDEBRID_API_KEY"),
@@ -39,8 +41,9 @@ export const config = {
     username: env("QBIT_USERNAME", "admin"),
     password: process.env.QBIT_PASSWORD?.trim() ?? "",
   },
-  downloadDir: path.resolve(env("DOWNLOAD_DIR", "downloads")),
-  dataDir: path.resolve(env("DATA_DIR", "data")),
+  downloadDir,
+  // Par défaut, l'état est rangé dans le dossier de téléchargement (déjà accessible en écriture).
+  dataDir: path.resolve(env("DATA_DIR", path.join(downloadDir, ".alldebrid-arr"))),
   maxConcurrentDownloads: envInt("MAX_CONCURRENT_DOWNLOADS", 3),
   pollIntervalMs: envInt("POLL_INTERVAL_SECONDS", 5) * 1000,
   logLevel: env("LOG_LEVEL", "info"),
