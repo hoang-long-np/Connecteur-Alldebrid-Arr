@@ -12,7 +12,7 @@ import { JobStore } from "./store.js";
 // Pas de process.exit() : sous Windows il peut faire planter Node pendant la fermeture
 // des connexions HTTPS. On positionne exitCode et on laisse le processus se terminer.
 
-const ACCOUNT_REFRESH_MS = 30 * 60 * 1000;
+const ACCOUNT_REFRESH_MS = 24 * 60 * 60 * 1000;
 
 async function isWritable(dir: string, label: string): Promise<boolean> {
   try {
