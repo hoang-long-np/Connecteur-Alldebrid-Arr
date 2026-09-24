@@ -2,7 +2,7 @@ import { randomBytes, timingSafeEqual } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { config } from "./config.js";
 import { errorMessage, logger } from "./logger.js";
-import { dashboardStatus, type AccountState } from "./dashboard.js";
+import { dashboardStatus, type AccountMonitor } from "./dashboard.js";
 import { DASHBOARD_HTML } from "./dashboard-page.js";
 import { fileProgress, jobProgress, type DownloadManager } from "./manager.js";
 import { categorySavePath, contentPath, relativeSegments } from "./paths.js";
@@ -45,8 +45,9 @@ const PAGE_HEADERS = {
  * puissent utiliser le connecteur comme un client torrent classique.
  * Il sert aussi l'interface web de suivi sur « / ».
  */
-export function createQbitServer(manager: DownloadManager, store: JobStore, account: AccountState): Server {
+export function createQbitServer(manager: DownloadManager, store: JobStore, account: AccountMonitor): Server {
   const sessions = new Set<string>();
+  let lastLoggedCheck: number | undefined;
 
   const isAuthorized = (req: IncomingMessage): boolean => {
     if (!config.server.password) return true;
@@ -222,7 +223,22 @@ export function createQbitServer(manager: DownloadManager, store: JobStore, acco
     "/api/v2/torrents/start": ok,
 
     // Interface web
-    "/ui/status": (_params, res) => json(res, dashboardStatus(store, account)),
+    "/ui/status": (_params, res) => json(res, dashboardStatus(store, account.state)),
+    "/ui/account/refresh": async (_params, res) => {
+      let error: unknown;
+      await account.refresh().catch((err: unknown) => (error = err));
+      // Des clics simultanés partagent la même vérification : une seule ligne de journal.
+      if (account.state.checkedAt !== lastLoggedCheck) {
+        lastLoggedCheck = account.state.checkedAt;
+        if (error) {
+          logger.warn(`Compte AllDebrid injoignable : ${errorMessage(error)}`);
+        } else {
+          const { username, isPremium } = account.state.info!;
+          logger.info(`Compte AllDebrid vérifié : ${username} (${isPremium ? "premium" : "non premium"})`);
+        }
+      }
+      send(res, 200, "Ok.");
+    },
   };
 
   return createServer(async (req, res) => {

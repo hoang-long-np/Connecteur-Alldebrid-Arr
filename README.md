@@ -69,7 +69,7 @@ Pousser sur `main`, attendre la fin du workflow « Image Docker », puis redépl
 
 Une page de suivi est servie sur le même port : `http://<hôte>:8090/`. Elle se met à jour toutes les 2 secondes et affiche :
 
-- l'état du compte AllDebrid (premium, date d'expiration) ;
+- l'état du compte AllDebrid (premium, date d'expiration), vérifié au démarrage puis toutes les 24 h, ou à la demande avec le bouton ↻ ;
 - le nombre de téléchargements en cours, terminés et en erreur, et le débit total ;
 - chaque téléchargement avec son étape (en file AllDebrid, sur AllDebrid, téléchargement, terminé, erreur), sa progression, son débit, le temps restant, ses fichiers et la raison d'un éventuel échec ;
 - les 200 dernières lignes du journal, filtrables sur les avertissements et erreurs.

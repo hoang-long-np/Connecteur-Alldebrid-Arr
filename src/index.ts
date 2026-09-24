@@ -3,7 +3,7 @@ import { access, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { AllDebridClient, AllDebridError } from "./alldebrid.js";
 import { config } from "./config.js";
-import type { AccountState } from "./dashboard.js";
+import { AccountMonitor } from "./dashboard.js";
 import { errorMessage, logger } from "./logger.js";
 import { DownloadManager } from "./manager.js";
 import { createQbitServer } from "./qbittorrent.js";
@@ -41,22 +41,11 @@ async function main(): Promise<void> {
   await store.load();
 
   const debrid = new AllDebridClient(config.alldebrid.apiKey, config.alldebrid.agent);
-  const account: AccountState = {};
-  const refreshAccount = async (): Promise<void> => {
-    try {
-      account.info = await debrid.getUser();
-      account.error = undefined;
-    } catch (err) {
-      account.error = errorMessage(err);
-      throw err;
-    } finally {
-      account.checkedAt = Date.now();
-    }
-  };
+  const account = new AccountMonitor(debrid);
 
   try {
-    await refreshAccount();
-    const user = account.info!;
+    await account.refresh();
+    const user = account.state.info!;
     if (user.isPremium) logger.info(`Connecté à AllDebrid : ${user.username} (premium)`);
     else logger.warn(`Le compte AllDebrid ${user.username} n'est pas premium : les téléchargements risquent d'échouer`);
   } catch (err) {
@@ -69,7 +58,7 @@ async function main(): Promise<void> {
   }
   // Statut du compte (premium, date d'expiration) affiché dans l'interface web.
   setInterval(() => {
-    refreshAccount().catch((err) => logger.warn(`Compte AllDebrid injoignable : ${errorMessage(err)}`));
+    account.refresh().catch((err) => logger.warn(`Compte AllDebrid injoignable : ${errorMessage(err)}`));
   }, ACCOUNT_REFRESH_MS).unref();
 
   const manager = new DownloadManager(store, debrid);

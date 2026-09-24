@@ -36,6 +36,13 @@ h1 { font-size: 18px; margin: 0; font-weight: 650; line-height: 1.2; }
 .status { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 550; }
 .live::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.account { display: inline-flex; align-items: center; gap: 4px; }
+.icon-button { display: inline-grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: 50%; background: var(--surface); color: var(--muted); cursor: pointer; }
+.icon-button:hover:not(:disabled) { background: var(--surface-2); color: var(--text); }
+.icon-button:disabled { cursor: progress; }
+.icon-button svg { width: 15px; height: 15px; }
+.spinning svg { animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 
 .tone-muted { background: var(--surface-2); color: var(--muted); }
 .tone-accent { background: var(--accent-soft); color: var(--accent); }
@@ -112,6 +119,7 @@ h2 { font-size: 15px; margin: 0; font-weight: 620; }
 @media (prefers-reduced-motion: reduce) {
   .fill { transition: none; }
   .stage-queued .fill { animation: none; }
+  .spinning svg { animation: none; }
 }
 </style>
 </head>
@@ -123,7 +131,12 @@ h2 { font-size: 15px; margin: 0; font-weight: 620; }
       <div><h1>Connecteur AllDebrid</h1><small>Client de téléchargement pour Radarr, Sonarr…</small></div>
     </div>
     <div class="status">
-      <span id="account" class="pill tone-muted">AllDebrid…</span>
+      <span class="account">
+        <span id="account" class="pill tone-muted">AllDebrid…</span>
+        <button type="button" id="refresh-account" class="icon-button" aria-label="Vérifier le compte AllDebrid maintenant" title="Vérifier le compte AllDebrid maintenant">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+        </button>
+      </span>
       <span id="live" class="pill live tone-muted">Connexion…</span>
     </div>
   </header>
@@ -242,7 +255,10 @@ h2 { font-size: 15px; margin: 0; font-weight: 620; }
     }
     pill.textContent = text;
     pill.className = "pill tone-" + tone;
-    pill.title = account.error ? "Dernière erreur : " + account.error : "";
+    var details = [];
+    if (account.error) details.push("Dernière erreur : " + account.error);
+    if (account.checkedAt) details.push("Vérifié le " + dateTime(account.checkedAt));
+    pill.title = details.join("\n");
   }
 
   function renderStats(jobs) {
@@ -460,6 +476,20 @@ h2 { font-size: 15px; margin: 0; font-weight: 620; }
       });
       render();
     });
+  });
+
+  $("refresh-account").addEventListener("click", function (event) {
+    var button = event.currentTarget;
+    button.disabled = true;
+    button.classList.add("spinning");
+    fetch("ui/account/refresh", { method: "POST", credentials: "same-origin" })
+      .then(function (response) { if (response.status === 403) $("login").hidden = false; })
+      .catch(function () { setLive(false); })
+      .then(function () {
+        button.disabled = false;
+        button.classList.remove("spinning");
+        load();
+      });
   });
 
   $("problems-only").addEventListener("change", function (event) {

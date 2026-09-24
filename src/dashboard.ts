@@ -1,17 +1,45 @@
-import type { AccountInfo } from "./alldebrid.js";
+import type { AccountInfo, AllDebridClient } from "./alldebrid.js";
 import { config } from "./config.js";
-import { recentLogs } from "./logger.js";
+import { errorMessage, recentLogs } from "./logger.js";
 import { fileProgress, jobProgress } from "./manager.js";
 import { relativeSegments } from "./paths.js";
 import type { Job, JobStore } from "./store.js";
 
 const STARTED_AT = Date.now();
 
-/** Dernier état connu du compte AllDebrid, rafraîchi périodiquement. */
+/** Dernier état connu du compte AllDebrid. */
 export interface AccountState {
   info?: AccountInfo;
   error?: string;
   checkedAt?: number;
+}
+
+/** Suit le compte AllDebrid : rafraîchi périodiquement et à la demande depuis l'interface. */
+export class AccountMonitor {
+  readonly state: AccountState = {};
+  private pending: Promise<void> | undefined;
+
+  constructor(private readonly debrid: Pick<AllDebridClient, "getUser">) {}
+
+  /** Interroge AllDebrid. Des demandes simultanées (clics répétés) partagent la même requête. */
+  refresh(): Promise<void> {
+    this.pending ??= this.fetch().finally(() => {
+      this.pending = undefined;
+    });
+    return this.pending;
+  }
+
+  private async fetch(): Promise<void> {
+    try {
+      this.state.info = await this.debrid.getUser();
+      this.state.error = undefined;
+    } catch (err) {
+      this.state.error = errorMessage(err);
+      throw err;
+    } finally {
+      this.state.checkedAt = Date.now();
+    }
+  }
 }
 
 /** Étape affichée dans l'interface. */
