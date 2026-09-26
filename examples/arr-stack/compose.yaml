@@ -1,12 +1,10 @@
 # Stack complète : connecteur AllDebrid + Radarr + Sonarr + Prowlarr + Bazarr.
 # Les valeurs ${…} se renseignent dans les variables d'environnement de la stack (voir stack.env.example).
 #
-# Tous les conteneurs voient le même dossier /data :
-#   /data/torrents/<catégorie>   téléchargements du connecteur (radarr, tv-sonarr…)
-#   /data/media/movies           bibliothèque Radarr
-#   /data/media/tv               bibliothèque Sonarr
-# Les chemins sont identiques partout (aucun « Remote Path Mapping ») et, comme tout est sur
-# le même volume, Radarr/Sonarr déplacent les fichiers instantanément au lieu de les copier.
+# Deux dossiers de l'hôte, montés au même chemin dans tous les conteneurs qui en ont besoin :
+#   DOWNLOADS_PATH → /downloads   téléchargements du connecteur, un sous-dossier par catégorie
+#   MEDIA_PATH     → /media       bibliothèques : /media/movies (Radarr), /media/tv (Sonarr)
+# Les chemins étant identiques partout, aucun « Remote Path Mapping » n'est nécessaire.
 #
 # Entre eux, les conteneurs se joignent par leur nom : http://radarr:7878, http://sonarr:8989,
 # http://prowlarr:9696, et le connecteur sur alldebrid-arr:8090.
@@ -32,11 +30,11 @@ services:
       ALLDEBRID_API_KEY: ${ALLDEBRID_API_KEY:?Renseignez ALLDEBRID_API_KEY}
       QBIT_USERNAME: ${QBIT_USERNAME:-admin}
       QBIT_PASSWORD: ${QBIT_PASSWORD:-}
-      DOWNLOAD_DIR: /data/torrents
+      DOWNLOAD_DIR: /downloads
     ports:
       - "8090:8090" # interface web du connecteur
     volumes:
-      - ${DATA_PATH:?Renseignez DATA_PATH}:/data
+      - ${DOWNLOADS_PATH:?Renseignez DOWNLOADS_PATH}:/downloads
 
   radarr:
     image: lscr.io/linuxserver/radarr:latest
@@ -47,7 +45,8 @@ services:
       - "7878:7878"
     volumes:
       - radarr-config:/config
-      - ${DATA_PATH:?Renseignez DATA_PATH}:/data
+      - ${DOWNLOADS_PATH:?Renseignez DOWNLOADS_PATH}:/downloads
+      - ${MEDIA_PATH:?Renseignez MEDIA_PATH}:/media
 
   sonarr:
     image: lscr.io/linuxserver/sonarr:latest
@@ -58,7 +57,8 @@ services:
       - "8989:8989"
     volumes:
       - sonarr-config:/config
-      - ${DATA_PATH:?Renseignez DATA_PATH}:/data
+      - ${DOWNLOADS_PATH:?Renseignez DOWNLOADS_PATH}:/downloads
+      - ${MEDIA_PATH:?Renseignez MEDIA_PATH}:/media
 
   prowlarr:
     image: lscr.io/linuxserver/prowlarr:latest
@@ -79,7 +79,7 @@ services:
       - "6767:6767"
     volumes:
       - bazarr-config:/config
-      - ${DATA_PATH:?Renseignez DATA_PATH}:/data
+      - ${MEDIA_PATH:?Renseignez MEDIA_PATH}:/media
 
 # Configurations des applications, gérées par Docker.
 volumes:
