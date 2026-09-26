@@ -1,0 +1,89 @@
+# Stack complète : connecteur AllDebrid + Radarr + Sonarr + Prowlarr + Bazarr.
+# Les valeurs ${…} se renseignent dans les variables d'environnement de la stack (voir stack.env.example).
+#
+# Tous les conteneurs voient le même dossier /data :
+#   /data/torrents/<catégorie>   téléchargements du connecteur (radarr, tv-sonarr…)
+#   /data/media/movies           bibliothèque Radarr
+#   /data/media/tv               bibliothèque Sonarr
+# Les chemins sont identiques partout (aucun « Remote Path Mapping ») et, comme tout est sur
+# le même volume, Radarr/Sonarr déplacent les fichiers instantanément au lieu de les copier.
+#
+# Entre eux, les conteneurs se joignent par leur nom : http://radarr:7878, http://sonarr:8989,
+# http://prowlarr:9696, et le connecteur sur alldebrid-arr:8090.
+
+# Réglages communs aux images linuxserver.io.
+# ARR_UID/ARR_GID plutôt que PUID/PGID : certains gestionnaires (Dockhand) ont leurs propres PUID/PGID.
+x-linuxserver-env: &linuxserver-env
+  PUID: ${ARR_UID:-568}
+  PGID: ${ARR_GID:-568}
+  UMASK: "002"
+  TZ: ${TZ:-Europe/Paris}
+
+services:
+  alldebrid-arr:
+    image: ghcr.io/hoang-long-np/connecteur-alldebrid-arr:latest
+    pull_policy: always
+    container_name: alldebrid-arr
+    restart: unless-stopped
+    init: true
+    user: "${ARR_UID:-568}:${ARR_GID:-568}"
+    environment:
+      TZ: ${TZ:-Europe/Paris}
+      ALLDEBRID_API_KEY: ${ALLDEBRID_API_KEY:?Renseignez ALLDEBRID_API_KEY}
+      QBIT_USERNAME: ${QBIT_USERNAME:-admin}
+      QBIT_PASSWORD: ${QBIT_PASSWORD:-}
+      DOWNLOAD_DIR: /data/torrents
+    ports:
+      - "8090:8090" # interface web du connecteur
+    volumes:
+      - ${DATA_PATH:?Renseignez DATA_PATH}:/data
+
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: radarr
+    restart: unless-stopped
+    environment: *linuxserver-env
+    ports:
+      - "7878:7878"
+    volumes:
+      - radarr-config:/config
+      - ${DATA_PATH:?Renseignez DATA_PATH}:/data
+
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    container_name: sonarr
+    restart: unless-stopped
+    environment: *linuxserver-env
+    ports:
+      - "8989:8989"
+    volumes:
+      - sonarr-config:/config
+      - ${DATA_PATH:?Renseignez DATA_PATH}:/data
+
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:latest
+    container_name: prowlarr
+    restart: unless-stopped
+    environment: *linuxserver-env
+    ports:
+      - "9696:9696"
+    volumes:
+      - prowlarr-config:/config
+
+  bazarr:
+    image: lscr.io/linuxserver/bazarr:latest
+    container_name: bazarr
+    restart: unless-stopped
+    environment: *linuxserver-env
+    ports:
+      - "6767:6767"
+    volumes:
+      - bazarr-config:/config
+      - ${DATA_PATH:?Renseignez DATA_PATH}:/data
+
+# Configurations des applications, gérées par Docker.
+volumes:
+  radarr-config:
+  sonarr-config:
+  prowlarr-config:
+  bazarr-config:

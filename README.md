@@ -61,6 +61,10 @@ Connecté à AllDebrid : <utilisateur> (premium)
 API compatible qBittorrent et interface web sur http://0.0.0.0:8090
 ```
 
+### Stack complète
+
+`examples/arr-stack/` contient une stack prête à l'emploi avec Radarr, Sonarr, Prowlarr et Bazarr, organisée autour d'un dossier `/data` commun (voir son README).
+
 ### Mise à jour
 
 Pousser sur `main`, attendre la fin du workflow « Image Docker », puis redéployer la stack : `pull_policy: always` télécharge la dernière image.
