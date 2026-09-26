@@ -6,6 +6,8 @@
 #   MEDIA_PATH     → /media       bibliothèques : /media/movies (Radarr), /media/tv (Sonarr)
 # Les chemins étant identiques partout, aucun « Remote Path Mapping » n'est nécessaire.
 #
+# Configurations : un dossier par application dans /mnt/config (chemins écrits en dur, à adapter).
+#
 # Entre eux, les conteneurs se joignent par leur nom : http://radarr:7878, http://sonarr:8989,
 # http://prowlarr:9696, et le connecteur sur alldebrid-arr:8090.
 
@@ -44,7 +46,7 @@ services:
     ports:
       - "7878:7878"
     volumes:
-      - radarr-config:/config
+      - /mnt/config/radarr:/config
       - ${DOWNLOADS_PATH:?Renseignez DOWNLOADS_PATH}:/downloads
       - ${MEDIA_PATH:?Renseignez MEDIA_PATH}:/media
 
@@ -56,7 +58,7 @@ services:
     ports:
       - "8989:8989"
     volumes:
-      - sonarr-config:/config
+      - /mnt/config/sonarr:/config
       - ${DOWNLOADS_PATH:?Renseignez DOWNLOADS_PATH}:/downloads
       - ${MEDIA_PATH:?Renseignez MEDIA_PATH}:/media
 
@@ -68,7 +70,7 @@ services:
     ports:
       - "9696:9696"
     volumes:
-      - prowlarr-config:/config
+      - /mnt/config/prowlarr:/config
 
   bazarr:
     image: lscr.io/linuxserver/bazarr:latest
@@ -78,12 +80,5 @@ services:
     ports:
       - "6767:6767"
     volumes:
-      - bazarr-config:/config
+      - /mnt/config/bazarr:/config
       - ${MEDIA_PATH:?Renseignez MEDIA_PATH}:/media
-
-# Configurations des applications, gérées par Docker.
-volumes:
-  radarr-config:
-  sonarr-config:
-  prowlarr-config:
-  bazarr-config:

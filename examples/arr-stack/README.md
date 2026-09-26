@@ -23,7 +23,7 @@ Les chemins sont les mêmes dans tous les conteneurs : aucun *Remote Path Mappin
 
 Téléchargements et bibliothèques étant deux montages distincts, Radarr/Sonarr importent par copie puis suppression : l'import prend le temps de copier le fichier et demande temporairement le double d'espace.
 
-Les configurations des applications sont stockées dans des volumes Docker nommés (`radarr-config`, `sonarr-config`…).
+Les configurations des applications sont dans `/mnt/config/<application>` sur l'hôte (`/mnt/config/radarr`, `/mnt/config/sonarr`…), montés sur `/config`. Ces chemins sont écrits en dur dans `compose.yaml` : les adapter si besoin. Le connecteur, lui, garde son état dans `<téléchargements>/.alldebrid-arr`.
 
 ## Mise en route
 
@@ -31,6 +31,7 @@ Les configurations des applications sont stockées dans des volumes Docker nomm�
 2. **Créer les dossiers** sur l'hôte, par exemple :
    ```bash
    sudo mkdir -p /mnt/tank/downloads /mnt/tank/media/movies /mnt/tank/media/tv
+   sudo mkdir -p /mnt/config/radarr /mnt/config/sonarr /mnt/config/prowlarr /mnt/config/bazarr
    ```
    L'utilisateur `ARR_UID` (568 par défaut) doit pouvoir y écrire. Sur TrueNAS : *Datasets → Permissions → Edit*, droit *Modify* pour l'utilisateur `apps`, appliqué récursivement.
 3. **Déployer** `compose.yaml` en renseignant les variables de `stack.env.example` (au minimum `ALLDEBRID_API_KEY`, `DOWNLOADS_PATH` et `MEDIA_PATH`).
