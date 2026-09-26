@@ -12,37 +12,42 @@
 
 ## Organisation des fichiers
 
-Deux dossiers de l'hôte sont montés, au même chemin dans tous les conteneurs qui en ont besoin :
+Un seul dossier de l'hôte (`DATA_PATH`) est monté sur `/data` dans le connecteur, Radarr, Sonarr et Bazarr :
 
-| Variable | Monté sur | Utilisé par | Contenu |
-| --- | --- | --- | --- |
-| `DOWNLOADS_PATH` | `/downloads` | connecteur, Radarr, Sonarr | un sous-dossier par catégorie : `radarr/`, `tv-sonarr/` |
-| `MEDIA_PATH` | `/media` | Radarr, Sonarr, Bazarr | `movies/` (Radarr), `tv/` (Sonarr) |
+```
+/data
+├── downloads/         téléchargements du connecteur, un sous-dossier par catégorie
+│   ├── radarr/
+│   └── tv-sonarr/
+└── media/
+    ├── movies/        bibliothèque Radarr
+    └── tv/            bibliothèque Sonarr
+```
 
-Les chemins sont les mêmes dans tous les conteneurs : aucun *Remote Path Mapping* n'est nécessaire.
+Les chemins sont les mêmes dans tous les conteneurs : aucun *Remote Path Mapping* n'est nécessaire. Et comme téléchargements et bibliothèques sont sur le même montage, l'import est un **déplacement instantané**, sans copie ni espace disque supplémentaire.
 
-Téléchargements et bibliothèques étant deux montages distincts, Radarr/Sonarr importent par copie puis suppression : l'import prend le temps de copier le fichier et demande temporairement le double d'espace.
+> Pour que l'import reste instantané, `downloads/` et `media/` doivent être de **simples dossiers d'un même dataset**. Deux datasets ZFS distincts (même imbriqués) sont deux systèmes de fichiers : l'import redeviendrait une copie.
 
-Les configurations des applications sont dans `/mnt/config/<application>` sur l'hôte (`/mnt/config/radarr`, `/mnt/config/sonarr`…), montés sur `/config`. Ces chemins sont écrits en dur dans `compose.yaml` : les adapter si besoin. Le connecteur, lui, garde son état dans `<téléchargements>/.alldebrid-arr`.
+Les configurations des applications sont dans `/mnt/config/<application>` sur l'hôte (`/mnt/config/radarr`, `/mnt/config/sonarr`…), montés sur `/config`. Ces chemins sont écrits en dur dans `compose.yaml` : les adapter si besoin. Le connecteur, lui, garde son état dans `/data/downloads/.alldebrid-arr`.
 
 ## Mise en route
 
 1. **Libérer les noms et les ports.** Arrêter la stack du connecteur seul (même nom de conteneur `alldebrid-arr`) et toute autre instance de Radarr, Sonarr, Prowlarr ou Bazarr qui utiliserait les mêmes ports.
 2. **Créer les dossiers** sur l'hôte, par exemple :
    ```bash
-   sudo mkdir -p /mnt/tank/downloads /mnt/tank/media/movies /mnt/tank/media/tv
+   sudo mkdir -p /mnt/tank/data/downloads /mnt/tank/data/media/movies /mnt/tank/data/media/tv
    sudo mkdir -p /mnt/config/radarr /mnt/config/sonarr /mnt/config/prowlarr /mnt/config/bazarr
    ```
    L'utilisateur `ARR_UID` (568 par défaut) doit pouvoir y écrire. Sur TrueNAS : *Datasets → Permissions → Edit*, droit *Modify* pour l'utilisateur `apps`, appliqué récursivement.
-3. **Déployer** `compose.yaml` en renseignant les variables de `stack.env.example` (au minimum `ALLDEBRID_API_KEY`, `DOWNLOADS_PATH` et `MEDIA_PATH`).
+3. **Déployer** `compose.yaml` en renseignant les variables de `stack.env.example` (au minimum `ALLDEBRID_API_KEY` et `DATA_PATH`).
 4. **Configurer les applications** (dans les interfaces web, sur l'adresse de l'hôte) :
 
    **Radarr** (`:7878`)
-   - *Settings → Media Management → Root Folders* : `/media/movies`
+   - *Settings → Media Management → Root Folders* : `/data/media/movies`
    - *Settings → Download Clients → + → qBittorrent* : Host `alldebrid-arr`, Port `8090`, Category `radarr`, identifiants `QBIT_USERNAME`/`QBIT_PASSWORD`
 
    **Sonarr** (`:8989`)
-   - *Settings → Media Management → Root Folders* : `/media/tv`
+   - *Settings → Media Management → Root Folders* : `/data/media/tv`
    - *Settings → Download Clients → + → qBittorrent* : Host `alldebrid-arr`, Port `8090`, Category `tv-sonarr`
 
    **Prowlarr** (`:9696`)
@@ -58,4 +63,4 @@ Les conteneurs se joignent par leur nom de service ; l'adresse IP de l'hôte ne 
 
 ## Reprendre une installation existante
 
-Radarr et Sonarr savent exporter leur configuration (*System → Backup*) et la restaurer dans la nouvelle instance. Après restauration, mettre à jour les dossiers racine (`/media/movies`, `/media/tv`) et le client de téléchargement (`alldebrid-arr`, port `8090`), qui pointent encore vers les anciens chemins.
+Radarr et Sonarr savent exporter leur configuration (*System → Backup*) et la restaurer dans la nouvelle instance. Après restauration, mettre à jour les dossiers racine (`/data/media/movies`, `/data/media/tv`) et le client de téléchargement (`alldebrid-arr`, port `8090`), qui pointent encore vers les anciens chemins.

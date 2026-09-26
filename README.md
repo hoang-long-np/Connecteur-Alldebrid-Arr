@@ -63,7 +63,7 @@ API compatible qBittorrent et interface web sur http://0.0.0.0:8090
 
 ### Stack complète
 
-`examples/arr-stack/` contient une stack prête à l'emploi avec Radarr, Sonarr, Prowlarr et Bazarr, avec un montage pour les téléchargements et un pour les bibliothèques (voir son README).
+`examples/arr-stack/` contient une stack prête à l'emploi avec Radarr, Sonarr, Prowlarr et Bazarr, organisée autour d'un dossier `/data` commun pour des imports instantanés (voir son README).
 
 ### Mise à jour
 

@@ -1,10 +1,14 @@
 # Stack complète : connecteur AllDebrid + Radarr + Sonarr + Prowlarr + Bazarr.
 # Les valeurs ${…} se renseignent dans les variables d'environnement de la stack (voir stack.env.example).
 #
-# Deux dossiers de l'hôte, montés au même chemin dans tous les conteneurs qui en ont besoin :
-#   DOWNLOADS_PATH → /downloads   téléchargements du connecteur, un sous-dossier par catégorie
-#   MEDIA_PATH     → /media       bibliothèques : /media/movies (Radarr), /media/tv (Sonarr)
-# Les chemins étant identiques partout, aucun « Remote Path Mapping » n'est nécessaire.
+# Un seul dossier de l'hôte (DATA_PATH), monté sur /data dans tous les conteneurs qui en ont besoin :
+#   /data/downloads/<catégorie>   téléchargements du connecteur (radarr, tv-sonarr…)
+#   /data/media/movies            bibliothèque Radarr
+#   /data/media/tv                bibliothèque Sonarr
+# Les chemins sont identiques partout (aucun « Remote Path Mapping ») et, téléchargements et
+# bibliothèques étant sur le même montage, l'import est un déplacement instantané, sans copie.
+# Condition : downloads/ et media/ doivent être de simples dossiers d'un même dataset,
+# pas deux datasets distincts.
 #
 # Configurations : un dossier par application dans /mnt/config (chemins écrits en dur, à adapter).
 #
@@ -32,11 +36,11 @@ services:
       ALLDEBRID_API_KEY: ${ALLDEBRID_API_KEY:?Renseignez ALLDEBRID_API_KEY}
       QBIT_USERNAME: ${QBIT_USERNAME:-admin}
       QBIT_PASSWORD: ${QBIT_PASSWORD:-}
-      DOWNLOAD_DIR: /downloads
+      DOWNLOAD_DIR: /data/downloads
     ports:
       - "8090:8090" # interface web du connecteur
     volumes:
-      - ${DOWNLOADS_PATH:?Renseignez DOWNLOADS_PATH}:/downloads
+      - ${DATA_PATH:?Renseignez DATA_PATH}:/data
 
   radarr:
     image: lscr.io/linuxserver/radarr:latest
@@ -47,8 +51,7 @@ services:
       - "7878:7878"
     volumes:
       - /mnt/config/radarr:/config
-      - ${DOWNLOADS_PATH:?Renseignez DOWNLOADS_PATH}:/downloads
-      - ${MEDIA_PATH:?Renseignez MEDIA_PATH}:/media
+      - ${DATA_PATH:?Renseignez DATA_PATH}:/data
 
   sonarr:
     image: lscr.io/linuxserver/sonarr:latest
@@ -59,8 +62,7 @@ services:
       - "8989:8989"
     volumes:
       - /mnt/config/sonarr:/config
-      - ${DOWNLOADS_PATH:?Renseignez DOWNLOADS_PATH}:/downloads
-      - ${MEDIA_PATH:?Renseignez MEDIA_PATH}:/media
+      - ${DATA_PATH:?Renseignez DATA_PATH}:/data
 
   prowlarr:
     image: lscr.io/linuxserver/prowlarr:latest
@@ -81,4 +83,4 @@ services:
       - "6767:6767"
     volumes:
       - /mnt/config/bazarr:/config
-      - ${MEDIA_PATH:?Renseignez MEDIA_PATH}:/media
+      - ${DATA_PATH:?Renseignez DATA_PATH}:/data
